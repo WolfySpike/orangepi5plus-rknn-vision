@@ -1,0 +1,3 @@
+/home/orangepi/aimbot_cpp/build/CMakeFiles/aimbot_main.dir
+/home/orangepi/aimbot_cpp/build/CMakeFiles/edit_cache.dir
+/home/orangepi/aimbot_cpp/build/CMakeFiles/rebuild_cache.dir
