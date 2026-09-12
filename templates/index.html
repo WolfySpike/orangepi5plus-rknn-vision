@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>鼠鼠AI 控制台</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar panel">
+      <div class="brand-wrap">
+        <h1 class="brand">鼠鼠AI</h1>
+        <p class="brand-sub">目标追踪控制台</p>
+      </div>
+      <button id="toggleBtn" class="btn-toggle btn-off" onclick="toggleEngine()">加载状态中...</button>
+    </header>
+
+    <section class="panel metrics">
+      <div class="metric-item"><span>吞吐</span><strong><span id="tele_fps">0</span> FPS</strong></div>
+      <div class="metric-item"><span>延迟</span><strong><span id="tele_time">0.0</span> ms</strong></div>
+      <div class="metric-item"><span>CPU占用</span><strong><span id="sys_cpu">0.0</span>%</strong></div>
+      <div class="metric-item"><span>NPU占用</span><strong id="sys_npu">--</strong></div>
+      <div class="metric-item"><span>内存占用</span><strong><span id="sys_mem">0.0</span>%</strong></div>
+      <div class="metric-item"><span>磁盘占用</span><strong><span id="sys_disk">0.0</span>%</strong></div>
+      <div class="metric-item"><span>状态</span><strong id="tele_status" class="muted">IDLE</strong></div>
+      <div class="metric-item"><span>目标</span><strong id="tele_target" class="muted">Safe</strong></div>
+      <div class="metric-item engine-msg"><span>引擎信息</span><strong id="tele_engine_err" class="muted">-</strong></div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="model" onclick="switchTab('model')">模型管理</button>
+      <button class="tab-btn" data-tab="target" onclick="switchTab('target')">目标配置</button>
+      <button class="tab-btn" data-tab="pid" onclick="switchTab('pid')">PID参数</button>
+      <button class="tab-btn" data-tab="crosshair" onclick="switchTab('crosshair')">准星识别</button>
+      <button class="tab-btn" data-tab="system" onclick="switchTab('system')">系统操作</button>
+    </nav>
+
+    <main>
+      <section class="section active" id="tab-model">
+        <div class="panel-grid two-col">
+          <article class="panel">
+            <h2 class="panel-title">模型配置</h2>
+            <div class="row"><span>当前模型</span><span class="val" id="currentModelName">-</span></div>
+            <div class="row"><span>模型家族</span></div>
+            <div class="family">
+              <button id="family_yolov8" onclick="setFamily('yolov8')">YOLOv8</button>
+              <button id="family_yolov11" onclick="setFamily('yolov11')">YOLOv11</button>
+              <button id="family_yolov26" onclick="setFamily('yolov26')">YOLOv26</button>
+            </div>
+            <div class="row"><span>NPU运行模式</span></div>
+            <div class="family">
+              <button id="npu_latency" onclick="setNpuMode('latency')">低延迟单核</button>
+              <button id="npu_throughput" onclick="setNpuMode('throughput')">高吞吐三核</button>
+            </div>
+            <div class="row"><span>当前NPU模式</span><span id="npuModeStatus" class="val">-</span></div>
+            <div class="row"><span>选择模型</span></div>
+            <select id="modelSelect" onchange="onModelSelectChanged(this.value)"></select>
+            <div class="row"><span>置信度阈值</span><span id="conf_thres_val" class="val">0</span></div>
+            <input id="conf_thres" type="range" min="0.01" max="0.95" step="0.01" oninput="sendVal('conf_thres', this.value)">
+            <div class="row"><span>NMS抑制阈值</span><span id="nms_iou_val" class="val">0</span></div>
+            <input id="nms_iou" type="range" min="0.01" max="0.95" step="0.01" oninput="sendVal('nms_iou', this.value)">
+            <button class="btn b-green" onclick="applyModelConfig()">应用模型配置</button>
+          </article>
+
+          <article class="panel">
+            <h2 class="panel-title">配置文件</h2>
+            <div class="row"><span>当前配置</span><span class="val" id="activeConfigName">default.json</span></div>
+            <select id="configSelect" onchange="onConfigSelectChanged(this.value)"></select>
+            <div class="grid2">
+              <button class="btn b-blue" onclick="switchConfig()">切换配置</button>
+              <button class="btn b-green" onclick="saveConfig()">保存当前</button>
+            </div>
+            <div class="space"></div>
+            <input id="newConfigName" type="text" placeholder="新配置名称（例如：狙击模式）">
+            <button class="btn b-blue" onclick="createConfig()">新建并切换</button>
+          </article>
+        </div>
+
+        <article class="panel">
+          <h2 class="panel-title">上传模型</h2>
+          <div id="uploadZone" class="upload-zone">拖拽 .rknn 到这里，或点击下方选择文件</div>
+          <input id="modelFileInput" type="file" accept=".rknn">
+          <button class="btn b-blue" onclick="uploadModel()">上传并加入列表</button>
+        </article>
+      </section>
+
+      <section class="section" id="tab-target">
+        <article class="panel">
+          <h2 class="panel-title">目标类别配置</h2>
+          <div class="row"><span>当前类别数</span><span class="val" id="targetClassCount">9</span></div>
+          <div class="grid2">
+            <button class="btn b-blue" onclick="changeClassCount(1)">+1 增加一类</button>
+            <button class="btn b-red" onclick="changeClassCount(-1)">-1 删除一类</button>
+          </div>
+          <div class="space"></div>
+          <div id="targetGrid" class="target-grid"></div>
+        </article>
+      </section>
+
+      <section class="section" id="tab-pid">
+        <article class="panel">
+          <h2 class="panel-title">PID 参数</h2>
+          <div class="row"><span>[X] Kp_x</span><span id="kp_x_val" class="val">0</span></div><input id="kp_x" type="range" min="0.05" max="1.0" step="0.01" oninput="sendVal('kp_x', this.value)">
+          <div class="row"><span>[X] Kd_x</span><span id="kd_x_val" class="val">0</span></div><input id="kd_x" type="range" min="0.0" max="0.5" step="0.01" oninput="sendVal('kd_x', this.value)">
+          <div class="row"><span>[Y] Kp_y</span><span id="kp_y_val" class="val">0</span></div><input id="kp_y" type="range" min="0.05" max="1.0" step="0.01" oninput="sendVal('kp_y', this.value)">
+          <div class="row"><span>[Y] Kd_y</span><span id="kd_y_val" class="val">0</span></div><input id="kd_y" type="range" min="0.0" max="0.5" step="0.01" oninput="sendVal('kd_y', this.value)">
+          <div class="row"><span>开火下压倍率</span><span id="recoil_val" class="val">0</span></div><input id="recoil" type="range" min="1.0" max="5.0" step="0.1" oninput="sendVal('recoil', this.value)">
+          <div class="row"><span>最高单帧移动限速</span><span id="max_step_val" class="val">0</span></div><input id="max_step" type="range" min="2.0" max="30.0" step="0.5" oninput="sendVal('max_step', this.value)">
+          <div class="row"><span>停止死区(px)</span><span id="deadzone_val" class="val">0</span></div><input id="deadzone" type="range" min="0" max="30" step="0.5" oninput="sendVal('deadzone', this.value)">
+          <div class="row"><span>近距减速范围(px)</span><span id="aim_slow_radius_val" class="val">0</span></div><input id="aim_slow_radius" type="range" min="0" max="160" step="1" oninput="sendVal('aim_slow_radius', this.value)">
+          <div class="row"><span>近距最低速度倍率</span><span id="aim_slow_min_scale_val" class="val">0</span></div><input id="aim_slow_min_scale" type="range" min="0.05" max="1.0" step="0.05" oninput="sendVal('aim_slow_min_scale', this.value)">
+          <div class="space"></div>
+          <h2 class="panel-title">预测追踪</h2>
+          <div class="row"><span>启用预测追踪</span><input id="pred_en" style="width:auto;" type="checkbox" onchange="sendVal('pred_en', this.checked ? 1 : 0)"></div>
+          <div class="row"><span>预测提前量(毫秒)</span><span id="pred_lead_ms_val" class="val">0</span></div><input id="pred_lead_ms" type="range" min="0" max="120" step="1" oninput="sendVal('pred_lead_ms', this.value)">
+          <div class="row"><span>速度平滑度</span><span id="pred_vel_smooth_val" class="val">0</span></div><input id="pred_vel_smooth" type="range" min="0" max="1" step="0.01" oninput="sendVal('pred_vel_smooth', this.value)">
+          <div class="row"><span>预测点平滑度</span><span id="pred_pos_smooth_val" class="val">0</span></div><input id="pred_pos_smooth" type="range" min="0" max="1" step="0.01" oninput="sendVal('pred_pos_smooth', this.value)">
+          <div class="row"><span>最大预测速度(像素/秒)</span><span id="pred_max_speed_val" class="val">0</span></div><input id="pred_max_speed" type="range" min="50" max="1500" step="10" oninput="sendVal('pred_max_speed', this.value)">
+        </article>
+      </section>
+
+      <section class="section" id="tab-crosshair">
+        <article class="panel">
+          <h2 class="panel-title">准心颜色识别</h2>
+          <div class="row"><span>启用准心找色</span><input id="xhair_en" style="width:auto;" type="checkbox" onchange="sendVal('xhair_en', this.checked ? 1 : 0)"></div>
+          <div class="row"><span>颜色预设</span></div>
+          <select id="xhairPresetSelect" onchange="selectXhairPreset(this.value)"></select>
+          <div class="grid2">
+            <input id="xhairPresetName" type="text" placeholder="预设名称，例如：亮青准心">
+            <button class="btn b-green" onclick="saveXhairPreset()">保存/覆盖预设</button>
+          </div>
+          <button class="btn b-red" onclick="deleteXhairPreset()">删除当前预设</button>
+          <div class="space"></div>
+          <div class="hsv-preview-row">
+            <span>当前HSV范围</span>
+            <span id="xhairHsvSummary" class="val">-</span>
+            <span id="xhairColorChip" class="color-chip"></span>
+          </div>
+          <div class="row"><span>H 最小</span><span id="xhair_h_min_val" class="val">170</span></div>
+          <input id="xhair_h_min" type="range" min="0" max="180" step="1" oninput="sendVal('xhair_h_min', this.value); markXhairCustom();">
+          <div class="row"><span>H 最大</span><span id="xhair_h_max_val" class="val">10</span></div>
+          <input id="xhair_h_max" type="range" min="0" max="180" step="1" oninput="sendVal('xhair_h_max', this.value); markXhairCustom();">
+          <div class="row"><span>S 最小</span><span id="xhair_s_min_val" class="val">120</span></div>
+          <input id="xhair_s_min" type="range" min="0" max="255" step="1" oninput="sendVal('xhair_s_min', this.value); markXhairCustom();">
+          <div class="row"><span>S 最大</span><span id="xhair_s_max_val" class="val">255</span></div>
+          <input id="xhair_s_max" type="range" min="0" max="255" step="1" oninput="sendVal('xhair_s_max', this.value); markXhairCustom();">
+          <div class="row"><span>V 最小</span><span id="xhair_v_min_val" class="val">120</span></div>
+          <input id="xhair_v_min" type="range" min="0" max="255" step="1" oninput="sendVal('xhair_v_min', this.value); markXhairCustom();">
+          <div class="row"><span>V 最大</span><span id="xhair_v_max_val" class="val">255</span></div>
+          <input id="xhair_v_max" type="range" min="0" max="255" step="1" oninput="sendVal('xhair_v_max', this.value); markXhairCustom();">
+          <div class="space"></div>
+          <h2 class="panel-title">实时调色预览</h2>
+          <div class="row"><span>开启预览</span><input id="xhair_preview_en" style="width:auto;" type="checkbox" onchange="sendPreviewEnabled(this.checked)"></div>
+          <div class="row"><span>预览帧率(FPS)</span><span id="xhair_preview_fps_val" class="val">20</span></div>
+          <input id="xhair_preview_fps" type="range" min="5" max="30" step="1" oninput="sendPreviewFps(this.value)">
+          <div class="preview-wrap">
+            <img id="xhairPreviewImg" class="preview-img" alt="准心HSV调色预览">
+            <div id="xhairPreviewHint" class="preview-hint">开启预览后，黄色区域表示当前 HSV 命中的准心颜色。</div>
+          </div>
+        </article>
+      </section>
+      <section class="section" id="tab-system">
+        <div class="panel-grid two-col">
+          <article class="panel">
+            <h2 class="panel-title">自动瞄准触发键</h2>
+            <div class="row"><label><input id="aim_key_l" style="width:auto;" type="checkbox" onchange="toggleAimKey(1,this.checked)"> 左键</label></div>
+            <div class="row"><label><input id="aim_key_r" style="width:auto;" type="checkbox" onchange="toggleAimKey(2,this.checked)"> 右键</label></div>
+            <div class="row"><label><input id="aim_key_m" style="width:auto;" type="checkbox" onchange="toggleAimKey(4,this.checked)"> 滚轮按键</label></div>
+            <div class="row"><label><input id="aim_key_sd" style="width:auto;" type="checkbox" onchange="toggleAimKey(16,this.checked)"> 上侧键</label></div>
+            <div class="row"><label><input id="aim_key_su" style="width:auto;" type="checkbox" onchange="toggleAimKey(8,this.checked)"> 下侧键</label></div>
+            <div class="space"></div>
+            <h2 class="panel-title">扳机按键（自瞄+开火）</h2>
+            <div class="row"><label><input id="trigger_key_l" style="width:auto;" type="checkbox" onchange="toggleTriggerKey(1,this.checked)"> 左键</label></div>
+            <div class="row"><label><input id="trigger_key_r" style="width:auto;" type="checkbox" onchange="toggleTriggerKey(2,this.checked)"> 右键</label></div>
+            <div class="row"><label><input id="trigger_key_m" style="width:auto;" type="checkbox" onchange="toggleTriggerKey(4,this.checked)"> 滚轮按键</label></div>
+            <div class="row"><label><input id="trigger_key_sd" style="width:auto;" type="checkbox" onchange="toggleTriggerKey(16,this.checked)"> 上侧键</label></div>
+            <div class="row"><label><input id="trigger_key_su" style="width:auto;" type="checkbox" onchange="toggleTriggerKey(8,this.checked)"> 下侧键</label></div>
+            <div class="row"><span>自瞄捕获范围(px)</span><span id="aim_fov_val" class="val">0</span></div>
+            <input id="aim_fov" type="range" min="40" max="230" step="1" oninput="sendVal('aim_fov', this.value)">
+            <div class="row"><span>开火判定半径(px)</span><span id="trigger_radius_val" class="val">0</span></div>
+            <input id="trigger_radius" type="range" min="1" max="60" step="1" oninput="sendVal('trigger_radius', this.value)">
+            <div class="row"><span>开火延迟(ms)</span><span id="trigger_delay_ms_val" class="val">0</span></div>
+            <input id="trigger_delay_ms" type="range" min="0" max="500" step="5" oninput="sendVal('trigger_delay_ms', this.value)">
+          </article>
+
+          <article class="panel">
+            <h2 class="panel-title">系统操作</h2>
+            <div class="grid2">
+              <button class="btn b-blue" onclick="systemAction('reboot')">重启设备</button>
+              <button class="btn b-red" onclick="systemAction('shutdown')">关闭设备</button>
+            </div>
+            <div class="space"></div>
+            <button class="btn b-green" onclick="systemAction('edid')">重新刷入 240Hz EDID</button>
+          </article>
+
+          <article class="panel">
+            <h2 class="panel-title">网络发射器</h2>
+            <div class="row"><span>状态</span><span id="streamerStatus" class="val">未启动</span></div>
+            <div class="row"><span>发射帧率</span><span class="val"><span id="streamerFps">0.0</span> FPS</span></div>
+            <div class="row"><span>累计帧数</span><span id="streamerFrame" class="val">0</span></div>
+            <input id="streamProtocol" type="hidden" value="udp">
+            <div class="row"><span>传输协议</span><span id="streamProtocolLabel" class="val">UDP</span></div>
+            <div class="family stream-mode">
+              <button id="streamProtocolUDP" type="button" class="active" onclick="setStreamerProtocol('udp')">UDP</button>
+              <button id="streamProtocolTCP" type="button" onclick="setStreamerProtocol('tcp')">TCP</button>
+            </div>
+            <div class="grid2">
+              <div>
+                <div class="row"><span>副机 IP</span></div>
+                <input id="streamHost" type="text" placeholder="192.168.3.113">
+              </div>
+              <div>
+                <div class="row"><span>端口</span></div>
+                <input id="streamPort" type="number" min="1" max="65535" step="1">
+              </div>
+            </div>
+            <div class="grid2">
+              <div>
+                <div class="row"><span>窗口尺寸</span></div>
+                <select id="streamSizePreset" onchange="setStreamerSizePreset(this.value)">
+                  <option value="256">256 x 256</option>
+                  <option value="320">320 x 320</option>
+                  <option value="416">416 x 416</option>
+                  <option value="640">640 x 640</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </div>
+              <div>
+                <div class="row"><span>标记帧率</span></div>
+                <input id="streamFps" type="number" min="1" max="240" step="1">
+              </div>
+            </div>
+            <div class="grid2">
+              <input id="streamWidth" type="number" min="64" max="1920" step="1" placeholder="宽度">
+              <input id="streamHeight" type="number" min="64" max="1080" step="1" placeholder="高度">
+            </div>
+            <div class="grid2">
+              <div>
+                <div class="row"><span>JPEG质量</span></div>
+                <input id="streamQuality" type="number" min="1" max="100" step="1">
+              </div>
+              <div id="streamPktSizeWrap">
+                <div class="row"><span>UDP包大小</span></div>
+                <input id="streamPktSize" type="number" min="256" max="65507" step="1">
+              </div>
+            </div>
+            <div class="grid2">
+              <button id="streamStartBtn" class="btn b-green" onclick="startStreamer()">一键发射</button>
+              <button id="streamStopBtn" class="btn b-red" onclick="stopStreamer()">停止发射</button>
+            </div>
+            <div class="space"></div>
+            <div class="row"><span>发射器日志</span><span class="val log-path" id="streamerLogPath">-</span></div>
+            <div id="streamerConsole" class="console-box small-console">等待发射器输出...</div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <h2 class="panel-title">&#39044;&#35272;&#31383;&#21475;</h2>
+          <div class="row"><span>&#24320;&#21551;&#25429;&#33719;&#39044;&#35272;</span><input id="preview_en" style="width:auto;" type="checkbox" onchange="sendVal('preview_en', this.checked ? 1 : 0)"></div>
+          <div class="row"><span>&#39044;&#35272;&#24092;&#29575;(FPS)</span><span id="preview_fps_val" class="val">20</span></div>
+          <input id="preview_fps" type="range" min="5" max="30" step="1" oninput="sendVal('preview_fps', this.value)">
+          <div class="preview-wrap">
+            <img id="previewImg" class="preview-img" alt="&#25429;&#33719;&#39044;&#35272;">
+            <div id="previewHint" class="preview-hint">&#39044;&#35272;&#20851;&#38381;&#65292;&#24320;&#21551;&#21518;&#20250;&#26174;&#31034; 320x320 &#25429;&#33719;&#33539;&#22260;&#21644;&#26816;&#27979;&#26694;&#12290;</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2 class="panel-title">引擎控制台</h2>
+          <div class="row"><span>日志文件</span><span class="val log-path" id="engineLogPath">-</span></div>
+          <div id="engineConsole" class="console-box">日志加载中...</div>
+          <div class="space"></div>
+          <button class="btn b-blue" onclick="fetchLogs(true)">手动刷新日志</button>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
