@@ -1,0 +1,15 @@
+{
+  "model_family": "yolov11",
+  "num_classes": 6,
+  "selected_model_id": "models:Bb_20260420_v11s_320.rknn",
+  "class_names": [
+    "Body",
+    "Head",
+    "Teammate",
+    "Bot",
+    "Falldown",
+    "DG"
+  ],
+  "active_config": "sjz",
+  "npu_mode": "latency"
+}
